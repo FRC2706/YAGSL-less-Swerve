@@ -20,7 +20,7 @@ public class Robot extends TimedRobot {
 
   @Override
   public void autonomousPeriodic() {
-    driveWithJoystick(false);
+    driveWithJoystick(true);
     m_swerve.updateOdometry();
   }
 

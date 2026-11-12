@@ -7,7 +7,6 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
-import edu.wpi.first.wpilibj.AnalogGyro;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class SwerveDrive extends SubsystemBase{
@@ -15,17 +14,17 @@ public class SwerveDrive extends SubsystemBase{
     public static final double kMaxSpeed = 3.0; // 3 meters per second
   public static final double kMaxAngularSpeed = Math.PI; // 1/2 rotation per second
 
-  private final Translation2d m_frontLeftLocation = new Translation2d(0.381, 0.381);
-  private final Translation2d m_frontRightLocation = new Translation2d(0.381, -0.381);
-  private final Translation2d m_backLeftLocation = new Translation2d(-0.381, 0.381);
-  private final Translation2d m_backRightLocation = new Translation2d(-0.381, -0.381);
+  private final Translation2d m_frontLeftLocation = new Translation2d(7.375, 7.375);
+  private final Translation2d m_frontRightLocation = new Translation2d(7.375, -7.375);
+  private final Translation2d m_backLeftLocation = new Translation2d(-7.375, 7.375);
+  private final Translation2d m_backRightLocation = new Translation2d(-7.375, -7.375);
 
-  private final SwerveModule m_frontLeft = new SwerveModule(0, 0, 0, 0);
-  private final SwerveModule m_frontRight = new SwerveModule(0, 0, 0, 0);
-  private final SwerveModule m_backLeft = new SwerveModule(0, 0, 0, 0);
-  private final SwerveModule m_backRight = new SwerveModule(0, 0, 0, 0);
+  private final SwerveModule m_frontLeft = new SwerveModule(26, 25, 10, 50.712890625);
+  private final SwerveModule m_frontRight = new SwerveModule(28, 27, 13, 251.982421875);
+  private final SwerveModule m_backLeft = new SwerveModule(24, 23, 11, 35.244140625);
+  private final SwerveModule m_backRight = new SwerveModule(22, 21, 12, 129.19921875);
 
-  private final Pigeon2 m_gyro = new Pigeon2(0);
+  private final Pigeon2 m_gyro = new Pigeon2(30);
 
   private final SwerveDriveKinematics m_kinematics =
       new SwerveDriveKinematics(
@@ -65,10 +64,10 @@ public class SwerveDrive extends SubsystemBase{
                     : new ChassisSpeeds(xSpeed, ySpeed, rot),
                 periodSeconds));
     SwerveDriveKinematics.desaturateWheelSpeeds(swerveModuleStates, kMaxSpeed);
-    m_frontLeft.setDesiredState(swerveModuleStates[0]);
-    m_frontRight.setDesiredState(swerveModuleStates[1]);
-    m_backLeft.setDesiredState(swerveModuleStates[2]);
-    m_backRight.setDesiredState(swerveModuleStates[3]);
+    m_frontLeft.setDesiredState(swerveModuleStates[0]); //Frontleft
+    m_frontRight.setDesiredState(swerveModuleStates[1]); //Frontright
+    m_backLeft.setDesiredState(swerveModuleStates[2]); //Backleft
+    m_backRight.setDesiredState(swerveModuleStates[3]); //Backright
   }
 
   /** Updates the field relative position of the robot. */
