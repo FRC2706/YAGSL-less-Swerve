@@ -7,30 +7,67 @@ import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.kinematics.SwerveDriveKinematics;
 import edu.wpi.first.math.kinematics.SwerveDriveOdometry;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
+import edu.wpi.first.networktables.DoubleArrayPublisher;
+import edu.wpi.first.networktables.DoublePublisher;
+import edu.wpi.first.networktables.NetworkTable;
+import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 public class SwerveDrive extends SubsystemBase{
     
-    public static final double kMaxSpeed = 3.0; // 3 meters per second
+  public static final double kMaxSpeed = 3.0; // 3 meters per second
   public static final double kMaxAngularSpeed = Math.PI; // 1/2 rotation per second
 
-  private final Translation2d m_frontLeftLocation = new Translation2d(7.375, 7.375);
-  private final Translation2d m_frontRightLocation = new Translation2d(7.375, -7.375);
-  private final Translation2d m_backLeftLocation = new Translation2d(-7.375, 7.375);
-  private final Translation2d m_backRightLocation = new Translation2d(-7.375, -7.375);
+  //Boolean for if swerve module informations should be published
+  private static final boolean publishInfo = true;
 
-  private final SwerveModule m_frontLeft = new SwerveModule(26, 25, 10, 50.712890625);
-  private final SwerveModule m_frontRight = new SwerveModule(28, 27, 13, 251.982421875);
-  private final SwerveModule m_backLeft = new SwerveModule(24, 23, 11, 35.244140625);
-  private final SwerveModule m_backRight = new SwerveModule(22, 21, 12, 129.19921875);
+  //Swerve info
+  private final Translation2d m_frontLeftLocation;
+  private final Translation2d m_frontRightLocation;
+  private final Translation2d m_backLeftLocation;
+  private final Translation2d m_backRightLocation;
 
-  private final Pigeon2 m_gyro = new Pigeon2(30);
+  private final SwerveModule m_frontLeft;
+  private final SwerveModule m_frontRight;
+  private final SwerveModule m_backLeft;
+  private final SwerveModule m_backRight;
 
-  private final SwerveDriveKinematics m_kinematics =
+  private final Pigeon2 m_gyro;
+
+  private final SwerveDriveKinematics m_kinematics;
+
+  private final SwerveDriveOdometry m_odometry;
+
+  //Publishers for dashboard
+  private DoublePublisher FLSpeedPub;
+  private DoublePublisher FRSpeedPub;
+  private DoublePublisher BLSpeedPub;
+  private DoublePublisher BRSpeedPub;
+  private DoublePublisher FLAnglePub;
+  private DoublePublisher FRAnglePub;
+  private DoublePublisher BLAnglePub;
+  private DoublePublisher BRAnglePub;
+
+
+  public SwerveDrive() {
+    //Set up swerve
+    m_frontLeftLocation = new Translation2d(7.375, 7.375);
+    m_frontRightLocation = new Translation2d(7.375, -7.375);
+    m_backLeftLocation = new Translation2d(-7.375, 7.375);
+    m_backRightLocation = new Translation2d(-7.375, -7.375);
+
+    m_frontLeft = new SwerveModule(26, 25, 10, 0.138672,true, false);
+    m_frontRight = new SwerveModule(28, 27, 13, -0.306396, true, false);
+    m_backLeft = new SwerveModule(24, 23, 11, 0.102051, true, false);
+    m_backRight = new SwerveModule(22, 21, 12, 0.349365, true, false);
+
+    m_gyro = new Pigeon2(30);
+
+    m_kinematics =
       new SwerveDriveKinematics(
           m_frontLeftLocation, m_frontRightLocation, m_backLeftLocation, m_backRightLocation);
 
-  private final SwerveDriveOdometry m_odometry =
+    m_odometry =
       new SwerveDriveOdometry(
           m_kinematics,
           m_gyro.getRotation2d(),
@@ -41,8 +78,33 @@ public class SwerveDrive extends SubsystemBase{
             m_backRight.getPosition()
           });
 
-  public SwerveDrive() {
     m_gyro.reset();
+
+    //Set up publishers
+    if (publishInfo){
+      NetworkTableInstance inst = NetworkTableInstance.getDefault();
+      NetworkTable table = inst.getTable("FMSInfo");
+      FLSpeedPub = table.getDoubleTopic("FLSpeed").publish();
+      FRSpeedPub = table.getDoubleTopic("FRSpeed").publish();
+      BLSpeedPub = table.getDoubleTopic("BLSpeed").publish();
+      BRSpeedPub = table.getDoubleTopic("BRSpeed").publish();
+      FLAnglePub = table.getDoubleTopic("FLAngle").publish();
+      FRAnglePub = table.getDoubleTopic("FRAngle").publish();
+      BLAnglePub = table.getDoubleTopic("BLAngle").publish();
+      BRAnglePub = table.getDoubleTopic("BRAngle").publish();
+    }
+  }
+  
+  //Update values of publishers
+  public void updatePub(){
+    FLSpeedPub.set(m_frontLeft.getState().speedMetersPerSecond);
+    FRSpeedPub.set(m_frontRight.getState().speedMetersPerSecond);
+    BLSpeedPub.set(m_backLeft.getState().speedMetersPerSecond);
+    BRSpeedPub.set(m_backRight.getState().speedMetersPerSecond);
+    FLAnglePub.set(m_frontLeft.getState().angle.getDegrees());
+    FRAnglePub.set(m_frontRight.getState().angle.getDegrees());
+    BLAnglePub.set(m_backLeft.getState().angle.getDegrees());
+    BRAnglePub.set(m_backRight.getState().angle.getDegrees());
   }
 
   /**
@@ -85,6 +147,7 @@ public class SwerveDrive extends SubsystemBase{
   @Override
   public void periodic(){
     updateOdometry();
+    updatePub();
   }
 
 }

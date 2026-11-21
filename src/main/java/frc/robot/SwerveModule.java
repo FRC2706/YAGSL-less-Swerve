@@ -56,7 +56,7 @@ public class SwerveModule {
   /**
    * Constructs a SwerveModule with a drive motor controller, turning motor controller, and absolute encoder*/
 
-  public SwerveModule(int driveCanID, int turnCanID, int absoluteEncoderCanID, double absoluteEncoderOffset) {
+  public SwerveModule(int driveCanID, int turnCanID, int absoluteEncoderCanID, double absoluteEncoderOffset, boolean invertAbsoluteEncoder, boolean invertRelativeEncoder) {
     //Construct motors
     m_driveMotor = new SparkMax(driveCanID, MotorType.kBrushless);
     m_turningMotor = new SparkMax(turnCanID, MotorType.kBrushless);
@@ -72,11 +72,16 @@ public class SwerveModule {
 
     //Set up drive configs
     SparkMaxConfig driveConfig = new SparkMaxConfig();
-    driveConfig.inverted(false);
+    if (invertRelativeEncoder){
+      driveConfig.inverted(true);
+    }
+    else{
+      driveConfig.inverted(false);
+    }
     driveConfig.idleMode(IdleMode.kCoast);
-    driveConfig.closedLoop.p(1);
+    driveConfig.closedLoop.p(0.0001);
     driveConfig.closedLoop.i(0);
-    driveConfig.closedLoop.d(0);
+    driveConfig.closedLoop.d(0.1);
     driveConfig.closedLoop.feedForward.kV(0);
     driveConfig.closedLoop.outputRange(-1, 1);
     driveConfig.closedLoopRampRate(0.25);
@@ -86,8 +91,8 @@ public class SwerveModule {
     //Set up turn configs
     SparkMaxConfig turnConfig = new SparkMaxConfig();
     turnConfig.idleMode(IdleMode.kBrake);
-    turnConfig.inverted(false);
-    turnConfig.closedLoop.p(0.25);
+    turnConfig.inverted(true);
+    turnConfig.closedLoop.p(0.025);
     turnConfig.closedLoop.i(0);
     turnConfig.closedLoop.d(0);
     turnConfig.closedLoop.feedForward.kV(0);
@@ -101,9 +106,14 @@ public class SwerveModule {
 
     //Set up absolute encoder offset
     CANcoderConfiguration absoluteEncoderConfig = new CANcoderConfiguration();
-    absoluteEncoderConfig.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5; //TBD
-    absoluteEncoderConfig.MagnetSensor.SensorDirection = SensorDirectionValue.Clockwise_Positive; //TBD
-    absoluteEncoderConfig.MagnetSensor.MagnetOffset = absoluteEncoderOffset / 360;
+    absoluteEncoderConfig.MagnetSensor.AbsoluteSensorDiscontinuityPoint = 0.5; 
+    if (invertAbsoluteEncoder){
+      absoluteEncoderConfig.MagnetSensor.SensorDirection = SensorDirectionValue.CounterClockwise_Positive; 
+    }
+    else{
+      absoluteEncoderConfig.MagnetSensor.SensorDirection = SensorDirectionValue.Clockwise_Positive; 
+    }
+    absoluteEncoderConfig.MagnetSensor.MagnetOffset = -absoluteEncoderOffset; //Offset should be in rotations; It is the value when the bevel is pointed to the left when an offset of 0
     absoluteEncoderConfig.FutureProofConfigs = true;
     absoluteEncoder.getConfigurator().apply(absoluteEncoderConfig);
 
@@ -113,7 +123,20 @@ public class SwerveModule {
 
   //Updates relative encoder values with absolute encoder values
   public void updateEncoder(){
-    m_turningEncoder.setPosition(absoluteEncoder.getAbsolutePosition().getValueAsDouble());
+    m_turningEncoder.setPosition(absoluteEncoder.getAbsolutePosition(true).getValueAsDouble() * kTurnRatio);
+  }
+
+  //Returns the angle of the module in degrees
+  public Rotation2d getAngle(){
+    double angle = (m_turningEncoder.getPosition() / kTurnRatio % 1)* 2 * Math.PI; //Get the angle value of the robot between 0 and 360
+    //Normalize the angle between 0 - 360 degrees
+    if (angle >= Math.PI){
+      angle = angle - 2 * Math.PI;
+    }
+    else if (angle <= -Math.PI){
+      angle = angle + 2 * Math.PI;
+    }
+    return new Rotation2d(angle);
   }
 
   /**
@@ -123,7 +146,7 @@ public class SwerveModule {
    */
   public SwerveModuleState getState() {
     return new SwerveModuleState(
-        m_driveEncoder.getVelocity() / 60 * 2 * Math.PI * kWheelRadius / kDriveRatio, new Rotation2d(m_turningEncoder.getPosition() * 360));
+        m_driveEncoder.getVelocity() / 60 * 2 * Math.PI * kWheelRadius / kDriveRatio, getAngle());
   }
 
   /**
@@ -133,7 +156,7 @@ public class SwerveModule {
    */
   public SwerveModulePosition getPosition() {
     return new SwerveModulePosition(
-        m_driveEncoder.getPosition() * 2 * Math.PI * kWheelRadius, new Rotation2d(m_turningEncoder.getPosition() * 360));
+        m_driveEncoder.getPosition() * 2 * Math.PI * kWheelRadius, getAngle());
   }
 
   /**
@@ -143,15 +166,16 @@ public class SwerveModule {
    */
   public void setDesiredState(SwerveModuleState desiredState) {
 
-    var encoderRotation = new Rotation2d(m_turningEncoder.getPosition() / kTurnRatio * 360);
+    var encoderRotation = getAngle();
 
     //Normalize the rotation to be a principal angle in case the wrapping doesn't work properly
+    /** 
     if (m_turningEncoder.getPosition() < -0.5){
       encoderRotation = new Rotation2d(-(Math.abs(m_turningEncoder.getPosition() /kTurnRatio * 360) % 360));
     }
     else if (m_turningEncoder.getPosition() > 0.5){
       encoderRotation = new Rotation2d(Math.abs(m_turningEncoder.getPosition() /kTurnRatio * 360) % 360);
-    }
+    }*/
     
 
     // Optimize the reference state to avoid spinning further than 90 degrees
@@ -165,7 +189,7 @@ public class SwerveModule {
     //Set speed for drive motor
     m_drivePIDController.setSetpoint(desiredState.speedMetersPerSecond * 60 / (2 * Math.PI * kWheelRadius) * kDriveRatio, SparkBase.ControlType.kVelocity);
 
-    //Sert position for turning motor
+    //Set position for turning motor
     m_turningPIDController.setSetpoint(desiredState.angle.getRotations() * kTurnRatio, ControlType.kPosition);
   }
 }
